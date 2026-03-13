@@ -33,7 +33,7 @@ const failureSuggestionEl = document.getElementById("failure-suggestion");
 
 const advancedCtaPanelEl = document.getElementById("advanced-cta-panel");
 
-const API_BASE_URL = "https://api.crkdev.com";
+const API_BASE_URL = "https://api.scraper.crkdev.com";
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 240;
 
