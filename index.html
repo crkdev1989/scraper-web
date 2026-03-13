@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Scraper Engine | CRK Dev</title>
+  <meta
+    name="description"
+    content="Run preset website scraping workflows with CRK Dev's free scraper tool. Submit a supported URL, choose a preset, track job status, and download structured results."
+  />
+  <link rel="stylesheet" href="styles.css" />
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-ZL9GKXQNWM"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-ZL9GKXQNWM');
+  </script>
+</head>
+<body class="tool-page">
+  <header class="tool-header">
+    <div class="tool-shell tool-header-inner">
+      <a href="https://crkdev.com" class="tool-logo-link">
+        <img src="assets/logo.png" alt="CRK Dev logo" class="tool-logo" />
+      </a>
+
+      <nav class="tool-nav">
+        <a href="https://crkdev.com">Home</a>
+        <a href="https://crkdev.com/portfolio">Portfolio</a>
+        <a href="https://crkdev.com/hire-me" class="tool-nav-cta">Hire Me</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="tool-shell tool-main">
+    <section class="tool-hero">
+      <div class="tool-hero-copy">
+        <p class="tool-eyebrow">Free Public Tool</p>
+        <h1>Run supported website scrapes in minutes</h1>
+        <p class="tool-synopsis">
+          scraper-engine is a config-driven scraper that extracts structured data from supported websites using preset workflows built by CRK Dev.
+        </p>
+        <p class="tool-subhead">
+          Enter a target URL, choose a supported preset, run the job, and download your results when it completes.
+        </p>
+
+        <div class="tool-hero-actions">
+          <a href="#run-scrape" class="tool-button tool-button-inline">Run a Scrape</a>
+          <a href="#tool-limits" class="tool-button tool-button-secondary">View Free Tool Limits</a>
+        </div>
+
+        <div class="tool-trust-row">
+          <div class="tool-trust-pill">Preset-based workflows</div>
+          <div class="tool-trust-pill">Structured outputs</div>
+          <div class="tool-trust-pill">Built with guardrails</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tool-card tool-stats-card">
+      <div class="tool-stats-grid tool-stats-grid-4">
+        <div class="tool-stat">
+          <div id="jobs-run-count" class="tool-stat-number">0</div>
+          <div class="tool-stat-label">Jobs Run</div>
+        </div>
+
+        <div class="tool-stat">
+          <div id="records-extracted-count" class="tool-stat-number">0</div>
+          <div class="tool-stat-label">Records Extracted</div>
+        </div>
+
+        <div class="tool-stat">
+          <div id="completed-scrapes-count" class="tool-stat-number">0</div>
+          <div class="tool-stat-label">Completed Scrapes</div>
+        </div>
+
+        <div class="tool-stat">
+          <div id="available-presets-count" class="tool-stat-number">4</div>
+          <div class="tool-stat-label">Available Presets</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tool-layout">
+      <div class="tool-layout-main">
+        <section class="tool-card tool-explainer-card">
+          <h2 class="tool-card-title">What this scraper does</h2>
+          <p class="tool-body-copy">
+            This tool is designed for supported scraping workflows only. Instead of trying to scrape every website on the internet, it runs preset extraction logic for specific use cases and returns structured output when the target site is compatible.
+          </p>
+          <p class="tool-body-copy">
+            It works best when you have a supported target, a clean public URL, and a preset that matches the kind of data you want to extract.
+          </p>
+
+          <div class="tool-feature-grid">
+            <div class="tool-feature-box">
+              <h3>Supported workflows</h3>
+              <p>Preset scraping configurations built for specific patterns and extraction goals.</p>
+            </div>
+
+            <div class="tool-feature-box">
+              <h3>Structured outputs</h3>
+              <p>Download usable result files instead of raw page dumps or messy copy-paste data.</p>
+            </div>
+
+            <div class="tool-feature-box">
+              <h3>Clear status tracking</h3>
+              <p>See whether your job is queued, running, completed, or failed.</p>
+            </div>
+
+            <div class="tool-feature-box">
+              <h3>Custom work available</h3>
+              <p>If your target needs more than a preset can handle, CRK Dev can build it.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="run-scrape" class="tool-card">
+          <div class="tool-card-header-row">
+            <div>
+              <h2 class="tool-card-title">Run a scrape</h2>
+              <p class="tool-card-subtitle">
+                Submit a supported public URL and choose the preset that matches your target.
+              </p>
+            </div>
+          </div>
+
+          <form id="scrape-form" class="tool-form" novalidate>
+            <div class="tool-form-group">
+              <label for="target-url">Target URL</label>
+              <input
+                type="url"
+                id="target-url"
+                name="target_url"
+                placeholder="https://example.com/page"
+                inputmode="url"
+                required
+              />
+              <p class="tool-field-help">
+                Use a public URL only. Login-protected and private pages are not supported in the free tool.
+              </p>
+            </div>
+
+            <div class="tool-form-group">
+              <label for="preset">Preset</label>
+              <select id="preset" name="preset" required>
+                <option value="">Select a preset</option>
+                <option value="page_data">Page Data</option>
+                <option value="website_contact">Website Contact</option>
+                <option value="business_info">Business Info</option>
+                <option value="directory_extract">Directory Extract</option>
+              </select>
+              <p class="tool-field-help">
+                Presets determine what type of extraction the scraper will attempt.
+              </p>
+            </div>
+
+            <div class="tool-form-actions">
+              <button type="submit" id="submit-button" class="tool-button">Run Scrape</button>
+            </div>
+          </form>
+
+          <div class="tool-form-note">
+            <strong>Free tool note:</strong> Not every site will work. Some sites block scraping, require JavaScript rendering, use anti-bot protection, or need custom extraction logic.
+          </div>
+
+          <div id="status-panel" class="tool-status-panel is-idle" aria-live="polite">
+            <div class="tool-status-top">
+              <div class="tool-status-badge" id="status-badge">Ready</div>
+              <div class="tool-job-meta">
+                <span>Job ID:</span>
+                <strong id="job-id">Not started</strong>
+              </div>
+            </div>
+
+            <div class="tool-status-copy">
+              <p id="status-message" class="tool-status-message">
+                Submit a supported URL to start a scrape.
+              </p>
+              <p id="status-detail" class="tool-status-detail">
+                Status updates will appear here as the backend processes the job.
+              </p>
+            </div>
+
+            <div class="tool-progress-shell" aria-hidden="true">
+              <div id="tool-progress-bar" class="tool-progress-bar"></div>
+            </div>
+
+            <div class="tool-status-grid">
+              <div class="tool-mini-status">
+                <span class="tool-mini-label">Queue State</span>
+                <span id="queue-state">Waiting</span>
+              </div>
+              <div class="tool-mini-status">
+                <span class="tool-mini-label">Current State</span>
+                <span id="run-state">Idle</span>
+              </div>
+              <div class="tool-mini-status">
+                <span class="tool-mini-label">Preset</span>
+                <span id="selected-preset-label">None selected</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="results-panel" class="tool-card tool-results-panel is-hidden">
+          <div class="tool-card-header-row">
+            <div>
+              <h2 class="tool-card-title">Results</h2>
+              <p class="tool-card-subtitle">
+                Download your output files after the scrape completes.
+              </p>
+            </div>
+          </div>
+
+          <div id="result-summary" class="tool-summary-block">
+            <p><strong>Status:</strong> Waiting for completed job</p>
+            <p><strong>Summary:</strong> Completed job details will appear here.</p>
+          </div>
+
+          <div class="tool-download-grid">
+            <a id="download-results-csv" href="#" class="tool-download-link is-disabled" aria-disabled="true">Download results.csv</a>
+            <a id="download-results-json" href="#" class="tool-download-link is-disabled" aria-disabled="true">Download results.json</a>
+            <a id="download-summary-txt" href="#" class="tool-download-link is-disabled" aria-disabled="true">Download summary.txt</a>
+            <a id="download-run-report" href="#" class="tool-download-link is-disabled" aria-disabled="true">Download run_report.json</a>
+          </div>
+        </section>
+
+        <section id="failure-panel" class="tool-card tool-feedback-panel tool-feedback-failure is-hidden" aria-live="polite">
+          <div class="tool-feedback-heading-row">
+            <div class="tool-feedback-icon">!</div>
+            <div>
+              <h2 class="tool-card-title">Scrape could not be completed</h2>
+              <p class="tool-card-subtitle">
+                We’ll show the cleanest explanation available from the backend.
+              </p>
+            </div>
+          </div>
+
+          <div class="tool-feedback-copy">
+            <p><strong>Message:</strong> <span id="failure-message">No failure message yet.</span></p>
+            <p><strong>Reason:</strong> <span id="failure-reason">No failure reason yet.</span></p>
+            <p><strong>Suggestion:</strong> <span id="failure-suggestion">No suggestion yet.</span></p>
+          </div>
+        </section>
+
+        <section id="advanced-cta-panel" class="tool-card tool-feedback-panel tool-feedback-upgrade is-hidden">
+          <div class="tool-feedback-heading-row">
+            <div class="tool-feedback-icon">+</div>
+            <div>
+              <h2 class="tool-card-title">Need more advanced scraping?</h2>
+              <p class="tool-card-subtitle">
+                This site may require advanced scraping or custom extraction.
+              </p>
+            </div>
+          </div>
+
+          <p class="tool-body-copy">
+            If the free preset tool cannot handle your target, I can build custom scraping workflows, extraction logic, cleanup pipelines, and automation around your exact use case.
+          </p>
+
+          <div class="tool-upgrade-actions tool-upgrade-actions-inline">
+            <a
+              href="https://crkdev.com/hire-me"
+              class="tool-upgrade-button tool-upgrade-button-primary"
+            >
+              Hire CRK Dev
+            </a>
+
+            <a
+              href="https://www.upwork.com/freelancers/craigk10"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="tool-upgrade-button"
+            >
+              Hire Me on Upwork
+            </a>
+          </div>
+        </section>
+      </div>
+
+      <aside class="tool-layout-side">
+        <section class="tool-card tool-how-it-works">
+          <h2 class="tool-card-title">How it works</h2>
+
+          <div class="tool-steps">
+            <div class="tool-step">
+              <div class="tool-step-number">1</div>
+              <h3>Enter a target URL</h3>
+              <p>Start with a public page or supported site section you want to scrape.</p>
+            </div>
+
+            <div class="tool-step">
+              <div class="tool-step-number">2</div>
+              <h3>Choose a preset</h3>
+              <p>Select the supported scraping workflow that best matches the target.</p>
+            </div>
+
+            <div class="tool-step">
+              <div class="tool-step-number">3</div>
+              <h3>Run the job</h3>
+              <p>The system submits your scrape and checks for queued, running, completed, or failed status.</p>
+            </div>
+
+            <div class="tool-step">
+              <div class="tool-step-number">4</div>
+              <h3>Download the output</h3>
+              <p>When complete, download your results and supporting output files.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="tool-limits" class="tool-card tool-limits-card">
+          <h2 class="tool-card-title">Free tool limits</h2>
+
+          <ul class="tool-limits-list">
+            <li>Supported presets only</li>
+            <li>Public URLs only</li>
+            <li>Page and record limits may apply</li>
+            <li>No JavaScript-heavy rendering in the free version</li>
+            <li>No login-protected or member-only pages</li>
+            <li>Some websites may block scraping entirely</li>
+            <li>Not every site structure will match a preset</li>
+            <li>Advanced or custom scraping is available for hire</li>
+          </ul>
+        </section>
+
+        <section class="tool-card tool-support-card">
+          <h2 class="tool-card-title">What you get</h2>
+
+          <div class="tool-info-stack">
+            <div class="tool-info-item">
+              <h3>results.csv</h3>
+              <p>Structured spreadsheet-friendly output for quick review or import.</p>
+            </div>
+
+            <div class="tool-info-item">
+              <h3>results.json</h3>
+              <p>Machine-friendly structured data for downstream automation.</p>
+            </div>
+
+            <div class="tool-info-item">
+              <h3>summary.txt</h3>
+              <p>Simple text summary of the run and what happened.</p>
+            </div>
+
+            <div class="tool-info-item">
+              <h3>run_report.json</h3>
+              <p>Detailed run metadata for diagnostics and workflow review.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="tool-card tool-example-card">
+          <h2 class="tool-card-title">Supported use cases</h2>
+
+          <div class="tool-example-block">
+            <div class="tool-example-label">Good fit</div>
+            <pre class="tool-example-code">Public business listings
+Contact detail extraction
+Basic website page data
+Supported directory-style targets</pre>
+          </div>
+
+          <div class="tool-example-block">
+            <div class="tool-example-label">Probably needs custom work</div>
+            <pre class="tool-example-code">JavaScript-heavy apps
+Logged-in portals
+Aggressive anti-bot sites
+Custom multi-step extraction logic</pre>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <section class="tool-card tool-upgrade-card">
+      <div class="tool-upgrade-content">
+        <div class="tool-upgrade-copy">
+          <p class="tool-upgrade-eyebrow">Need more than the free tool?</p>
+          <h2 class="tool-card-title">Hire CRK Dev for custom scraping and extraction pipelines</h2>
+
+          <p class="tool-upgrade-text">
+            The public tool is meant for supported presets and guarded free use. If you need advanced crawling, custom extractors, recurring runs, database workflows, or scraping that goes beyond the free limits, I can build the full solution.
+          </p>
+
+          <ul class="tool-upgrade-list">
+            <li>Custom scraping logic for difficult targets</li>
+            <li>Structured extraction for business data and directories</li>
+            <li>Cleanup, transformation, and export pipelines</li>
+            <li>Automation-ready outputs and repeatable workflows</li>
+          </ul>
+        </div>
+
+        <div class="tool-upgrade-actions">
+          <a
+            href="https://crkdev.com/hire-me"
+            class="tool-upgrade-button tool-upgrade-button-primary"
+          >
+            Work With CRK Dev
+          </a>
+
+          <a
+            href="https://www.upwork.com/freelancers/craigk10"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="tool-upgrade-button"
+          >
+            Hire Me on Upwork
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="tool-footer">
+    <div class="tool-shell tool-footer-inner">
+      <div>© CRK Dev</div>
+      <div class="tool-footer-links">
+        <a href="https://crkdev.com">Website</a>
+        <a href="https://github.com/crkdev1989">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
