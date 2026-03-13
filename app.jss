@@ -34,7 +34,6 @@ const failureSuggestionEl = document.getElementById("failure-suggestion");
 const advancedCtaPanelEl = document.getElementById("advanced-cta-panel");
 
 const API_BASE_URL = "https://api.crkdev.com";
-
 const POLL_INTERVAL_MS = 2500;
 const MAX_POLL_ATTEMPTS = 240;
 
@@ -55,15 +54,15 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function formatNumber(value) {
-  return Number(value || 0).toLocaleString();
-}
-
 function safeText(value, fallback = "Not available") {
   if (value === null || value === undefined || value === "") {
     return fallback;
   }
   return String(value);
+}
+
+function formatNumber(value) {
+  return Number(value || 0).toLocaleString();
 }
 
 function hideEl(element) {
@@ -72,25 +71,6 @@ function hideEl(element) {
 
 function showEl(element) {
   element.classList.remove("is-hidden");
-}
-
-function disableDownloadLink(el) {
-  el.href = "#";
-  el.classList.add("is-disabled");
-  el.setAttribute("aria-disabled", "true");
-}
-
-function enableDownloadLink(el, href) {
-  if (!href) {
-    disableDownloadLink(el);
-    return;
-  }
-
-  el.href = href;
-  el.classList.remove("is-disabled");
-  el.setAttribute("aria-disabled", "false");
-  el.setAttribute("target", "_blank");
-  el.setAttribute("rel", "noopener noreferrer");
 }
 
 function clearPolling() {
@@ -145,6 +125,25 @@ function setStatusState(state, options = {}) {
   setProgress(progress);
 }
 
+function disableDownloadLink(el) {
+  el.href = "#";
+  el.classList.add("is-disabled");
+  el.setAttribute("aria-disabled", "true");
+}
+
+function enableDownloadLink(el, href) {
+  if (!href) {
+    disableDownloadLink(el);
+    return;
+  }
+
+  el.href = href;
+  el.classList.remove("is-disabled");
+  el.setAttribute("aria-disabled", "false");
+  el.setAttribute("target", "_blank");
+  el.setAttribute("rel", "noopener noreferrer");
+}
+
 function resetDownloads() {
   disableDownloadLink(downloadResultsCsvEl);
   disableDownloadLink(downloadResultsJsonEl);
@@ -192,67 +191,130 @@ function resetUiForNewJob() {
   setSubmitState(false);
 }
 
-function getDownloadUrl(pathOrUrl) {
-  if (!pathOrUrl) return null;
-
-  const value = String(pathOrUrl);
-
-  if (value.startsWith("http://") || value.startsWith("https://")) {
-    return value;
-  }
-
-  if (value.startsWith("/")) {
-    return `${API_BASE_URL}${value}`;
-  }
-
-  return `${API_BASE_URL}/${value}`;
+function getDownloadUrl(jobId, fileName) {
+  return `${API_BASE_URL}/api/jobs/${encodeURIComponent(jobId)}/files/${encodeURIComponent(fileName)}`;
 }
 
-function shouldShowAdvancedCta(data) {
-  return Boolean(
-    data?.needs_custom_scraping ||
-    data?.advanced_scraping_required ||
-    data?.custom_extraction_required ||
-    data?.show_hire_cta
-  );
+function extractErrorPayload(errorData) {
+  if (errorData && typeof errorData === "object" && errorData.detail) {
+    if (typeof errorData.detail === "object" && errorData.detail !== null) {
+      return errorData.detail;
+    }
+    return {
+      message: String(errorData.detail),
+      reason: "request_failed",
+      suggestion: "Please try again."
+    };
+  }
+
+  if (errorData && typeof errorData === "object") {
+    return errorData;
+  }
+
+  return {
+    message: "Request failed.",
+    reason: "request_failed",
+    suggestion: "Please try again."
+  };
 }
 
-/* -----------------------------
-   Stats
------------------------------ */
+function shouldShowAdvancedCta(payload) {
+  return Boolean(payload && payload.help);
+}
 
-async function loadStats() {
-  try {
-    const res = await fetch(`${API_BASE_URL}/scraper/stats`);
+function statusFromResponse(data) {
+  return String(data?.status || "unknown").toLowerCase();
+}
 
-    if (!res.ok) {
-      throw new Error("Failed to load stats");
+function getProgressPercentFromJob(data) {
+  const status = statusFromResponse(data);
+
+  if (status === "queued") {
+    return 20;
+  }
+
+  if (status === "running") {
+    const progress = data?.progress || {};
+    const pagesScanned = Number(progress.pages_scanned || 0);
+    const recordsExtracted = Number(progress.records_extracted || 0);
+    const paginationPages = Number(progress.pagination_pages || 0);
+
+    if (pagesScanned === 0 && recordsExtracted === 0 && paginationPages === 0) {
+      return 55;
     }
 
-    const stats = await res.json();
+    const pageSignal = Math.min(pagesScanned * 5, 30);
+    const recordSignal = Math.min(recordsExtracted > 0 ? 20 : 0, 20);
+    const paginationSignal = Math.min(paginationPages * 4, 15);
 
-    jobsRunEl.textContent = formatNumber(stats.jobs_run);
-    recordsExtractedEl.textContent = formatNumber(stats.records_extracted);
-    completedScrapesEl.textContent = formatNumber(stats.completed_scrapes);
-    availablePresetsEl.textContent = formatNumber(stats.available_presets || 4);
-  } catch (err) {
-    jobsRunEl.textContent = "0";
-    recordsExtractedEl.textContent = "0";
-    completedScrapesEl.textContent = "0";
-    availablePresetsEl.textContent = "4";
+    return Math.min(85, 35 + pageSignal + recordSignal + paginationSignal);
   }
+
+  if (status === "completed" || status === "failed") {
+    return 100;
+  }
+
+  return 18;
 }
 
 /* -----------------------------
-   Results / Failure Rendering
+   Presets / limits
+----------------------------- */
+
+async function loadPresets() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/presets`);
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error("Failed to load presets.");
+    }
+
+    const presets = Array.isArray(data.presets) ? data.presets : [];
+    availablePresetsEl.textContent = formatNumber(presets.length);
+
+    const currentValue = presetSelect.value;
+    const optionsHtml = ['<option value="">Select a preset</option>']
+      .concat(
+        presets.map((preset) => {
+          const value = escapeHtml(preset.preset || "");
+          const label = escapeHtml(preset.config_name || preset.preset || "Preset");
+          return `<option value="${value}">${label}</option>`;
+        })
+      )
+      .join("");
+
+    presetSelect.innerHTML = optionsHtml;
+
+    if (currentValue && presets.some((preset) => preset.preset === currentValue)) {
+      presetSelect.value = currentValue;
+    }
+
+    selectedPresetLabelEl.textContent =
+      presetSelect.options[presetSelect.selectedIndex]?.text || "None selected";
+  } catch (err) {
+    availablePresetsEl.textContent = "0";
+  }
+}
+
+function initializePlaceholderCounters() {
+  jobsRunEl.textContent = "0";
+  recordsExtractedEl.textContent = "0";
+  completedScrapesEl.textContent = "0";
+}
+
+/* -----------------------------
+   Rendering
 ----------------------------- */
 
 function renderCompletedResults(data) {
-  const recordCount = data.records_extracted ?? data.row_count ?? data.records_count ?? 0;
-  const pagesVisited = data.pages_visited ?? data.page_count ?? "Not available";
-  const duration = data.duration ?? data.duration_seconds ?? "Not available";
-  const preset = data.preset ?? presetSelect.value || "Not available";
-  const targetUrl = data.target_url ?? targetUrlInput.value || "Not available";
+  const recordCount = data.records_extracted ?? 0;
+  const pagesVisited = data.pages_visited ?? "Not available";
+  const paginationUrlsFollowed = data.pagination_urls_followed ?? "Not available";
+  const crawlPagesScanned = data.crawl_pages_scanned ?? "Not available";
+  const duration = data.run_duration ?? "Not available";
+  const preset = data.config_name || data.preset || "Not available";
+  const targetUrl = data.target_url || targetUrlInput.value || "Not available";
 
   resultSummaryEl.innerHTML = `
     <p><strong>Status:</strong> Completed</p>
@@ -261,69 +323,48 @@ function renderCompletedResults(data) {
     <p><strong>Preset:</strong> ${escapeHtml(safeText(preset))}</p>
     <p><strong>Records Extracted:</strong> ${escapeHtml(safeText(recordCount))}</p>
     <p><strong>Pages Visited:</strong> ${escapeHtml(safeText(pagesVisited))}</p>
-    <p><strong>Duration:</strong> ${escapeHtml(safeText(duration))}</p>
+    <p><strong>Pagination URLs Followed:</strong> ${escapeHtml(safeText(paginationUrlsFollowed))}</p>
+    <p><strong>Crawl Pages Scanned:</strong> ${escapeHtml(safeText(crawlPagesScanned))}</p>
+    <p><strong>Run Duration:</strong> ${escapeHtml(safeText(duration))}</p>
   `;
 
-  const downloads = data.downloads || {};
+  const files = data.files || {};
 
   enableDownloadLink(
     downloadResultsCsvEl,
-    getDownloadUrl(
-      downloads.results_csv ||
-      downloads.csv ||
-      data.results_csv_url ||
-      data.csv_url
-    )
+    files["results.csv"]?.available ? getDownloadUrl(data.job_id || activeJobId, "results.csv") : null
   );
 
   enableDownloadLink(
     downloadResultsJsonEl,
-    getDownloadUrl(
-      downloads.results_json ||
-      downloads.json ||
-      data.results_json_url ||
-      data.json_url
-    )
+    files["results.json"]?.available ? getDownloadUrl(data.job_id || activeJobId, "results.json") : null
   );
 
   enableDownloadLink(
     downloadSummaryTxtEl,
-    getDownloadUrl(
-      downloads.summary_txt ||
-      downloads.summary ||
-      data.summary_txt_url ||
-      data.summary_url
-    )
+    files["summary.txt"]?.available ? getDownloadUrl(data.job_id || activeJobId, "summary.txt") : null
   );
 
   enableDownloadLink(
     downloadRunReportEl,
-    getDownloadUrl(
-      downloads.run_report_json ||
-      downloads.run_report ||
-      data.run_report_url ||
-      data.report_url
-    )
+    files["run_report.json"]?.available ? getDownloadUrl(data.job_id || activeJobId, "run_report.json") : null
   );
 
   showEl(resultsPanelEl);
 }
 
-function renderFailure(data) {
+function renderFailureFromPayload(failure) {
   const message =
-    data.message ||
-    data.error ||
+    failure?.message ||
     "The scrape could not be completed.";
 
   const reason =
-    data.reason ||
-    data.failure_reason ||
-    "The backend did not provide a specific reason.";
+    failure?.reason ||
+    "unknown_failure";
 
   const suggestion =
-    data.suggestion ||
-    data.failure_suggestion ||
-    "Try a different supported URL or preset. If the site requires custom handling, hire CRK Dev.";
+    failure?.suggestion ||
+    "Try another supported URL or preset.";
 
   failureMessageEl.textContent = message;
   failureReasonEl.textContent = reason;
@@ -331,7 +372,7 @@ function renderFailure(data) {
 
   showEl(failurePanelEl);
 
-  if (shouldShowAdvancedCta(data)) {
+  if (shouldShowAdvancedCta(failure)) {
     showEl(advancedCtaPanelEl);
   } else {
     hideEl(advancedCtaPanelEl);
@@ -345,7 +386,9 @@ function renderFailure(data) {
 async function pollJobStatus(jobId) {
   clearPolling();
 
-  if (!jobId) return;
+  if (!jobId) {
+    return;
+  }
 
   pollAttempts += 1;
 
@@ -359,11 +402,10 @@ async function pollJobStatus(jobId) {
       progress: 100
     });
 
-    renderFailure({
+    renderFailureFromPayload({
       message: "Polling timed out.",
-      reason: "The job did not reach a final state within the allowed polling window.",
-      suggestion: "Try submitting again later or contact CRK Dev if the issue keeps happening.",
-      show_hire_cta: false
+      reason: "timeout",
+      suggestion: "Try again later. If the site is difficult, it may require custom scraping."
     });
 
     setSubmitState(false);
@@ -371,51 +413,42 @@ async function pollJobStatus(jobId) {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL}/scraper/jobs/${encodeURIComponent(jobId)}`);
-
-    if (!response.ok) {
-      let message = `Status request failed (${response.status})`;
-
-      try {
-        const error = await response.json();
-        if (error.detail) {
-          message = error.detail;
-        }
-      } catch (_) {}
-
-      throw new Error(message);
-    }
-
+    const response = await fetch(`${API_BASE_URL}/api/jobs/${encodeURIComponent(jobId)}`);
     const data = await response.json();
 
-    const rawStatus = String(
-      data.status ||
-      data.state ||
-      data.run_status ||
-      "unknown"
-    ).toLowerCase();
+    if (!response.ok) {
+      const errorPayload = extractErrorPayload(data);
 
-    const queueState =
-      data.queue_state ||
-      (rawStatus === "queued" ? "Queued" : rawStatus === "running" ? "Dequeued" : "N/A");
+      throw new Error(
+        JSON.stringify({
+          message: errorPayload.message || `Status request failed (${response.status})`,
+          reason: errorPayload.reason || "request_failed",
+          suggestion: errorPayload.suggestion || "Please try again.",
+          help: errorPayload.help || null
+        })
+      );
+    }
 
-    const presetLabel =
-      data.preset_label ||
+    const status = statusFromResponse(data);
+    const progressPercent = getProgressPercentFromJob(data);
+
+    activeJobId = data.job_id || jobId;
+    jobIdEl.textContent = activeJobId;
+
+    selectedPresetLabelEl.textContent =
+      data.config_name ||
       data.preset ||
       presetSelect.options[presetSelect.selectedIndex]?.text ||
       "Unknown";
 
-    selectedPresetLabelEl.textContent = presetLabel;
-    jobIdEl.textContent = data.job_id || jobId;
-
-    if (rawStatus === "queued") {
+    if (status === "queued") {
       setStatusState("queued", {
         badge: "Queued",
-        message: data.message || "Your scrape job is queued.",
-        detail: data.detail || "The job has been accepted and is waiting to run.",
-        queueState: queueState,
+        message: "Your scrape job has been queued.",
+        detail: "The backend accepted the job and is waiting to run it.",
+        queueState: "Queued",
         runState: "Queued",
-        progress: 30
+        progress: progressPercent
       });
 
       setSubmitState(true);
@@ -423,14 +456,30 @@ async function pollJobStatus(jobId) {
       return;
     }
 
-    if (rawStatus === "running") {
+    if (status === "running") {
+      const progress = data.progress || {};
+      const phase = data.current_phase || "running";
+      const detailParts = [];
+
+      if (progress.pages_scanned) {
+        detailParts.push(`Pages scanned: ${progress.pages_scanned}`);
+      }
+      if (progress.records_extracted) {
+        detailParts.push(`Records extracted: ${progress.records_extracted}`);
+      }
+      if (progress.pagination_pages) {
+        detailParts.push(`Pagination pages: ${progress.pagination_pages}`);
+      }
+
       setStatusState("running", {
         badge: "Running",
-        message: data.message || "Your scrape is in progress.",
-        detail: data.detail || "The backend is currently processing the job.",
-        queueState: queueState,
-        runState: "Running",
-        progress: 65
+        message: "Your scrape is in progress.",
+        detail: detailParts.length > 0
+          ? detailParts.join(" • ")
+          : "The backend is currently processing the job.",
+        queueState: "Dequeued",
+        runState: phase,
+        progress: progressPercent
       });
 
       setSubmitState(true);
@@ -438,68 +487,81 @@ async function pollJobStatus(jobId) {
       return;
     }
 
-    if (rawStatus === "completed" || rawStatus === "success") {
+    if (status === "completed") {
       setStatusState("completed", {
         badge: "Completed",
-        message: data.message || "Scrape completed successfully.",
-        detail: data.detail || "Your output files are ready to download.",
-        queueState: queueState,
+        message: "Scrape completed successfully.",
+        detail: "Your output files are ready to download.",
+        queueState: "Finished",
         runState: "Completed",
         progress: 100
       });
 
       renderCompletedResults(data);
-
-      if (shouldShowAdvancedCta(data)) {
-        showEl(advancedCtaPanelEl);
-      }
-
       setSubmitState(false);
-      loadStats();
       return;
     }
 
-    if (rawStatus === "failed" || rawStatus === "error") {
+    if (status === "failed") {
+      const failure = data.failure || {
+        message: "Scrape failed.",
+        reason: "failed",
+        suggestion: "Try another supported URL or preset."
+      };
+
       setStatusState("failed", {
         badge: "Failed",
-        message: data.message || "Scrape failed.",
-        detail: data.detail || "The backend returned a failure state for this job.",
-        queueState: queueState,
+        message: failure.message || "Scrape failed.",
+        detail: failure.suggestion || "The backend returned a failure state for this job.",
+        queueState: "Finished",
         runState: "Failed",
         progress: 100
       });
 
-      renderFailure(data);
+      renderFailureFromPayload(failure);
       setSubmitState(false);
       return;
     }
 
     setStatusState("running", {
       badge: "Processing",
-      message: data.message || "The job is still being processed.",
-      detail: data.detail || "Waiting for a final backend status.",
-      queueState: queueState,
-      runState: safeText(data.status || data.state || "Processing"),
-      progress: 55
+      message: "The job is still being processed.",
+      detail: "Waiting for a final backend status.",
+      queueState: "Working",
+      runState: safeText(data.current_phase || data.status || "Processing"),
+      progress: progressPercent
     });
 
     setSubmitState(true);
     pollTimer = setTimeout(() => pollJobStatus(jobId), POLL_INTERVAL_MS);
   } catch (err) {
+    let message = "Could not fetch job status.";
+    let reason = "request_failed";
+    let suggestion = "Try again. If this keeps happening, check the backend.";
+    let help = null;
+
+    try {
+      const parsed = JSON.parse(err.message);
+      message = parsed.message || message;
+      reason = parsed.reason || reason;
+      suggestion = parsed.suggestion || suggestion;
+      help = parsed.help || null;
+    } catch (_) {}
+
     setStatusState("failed", {
       badge: "Error",
-      message: "Could not fetch job status.",
-      detail: err.message,
+      message: message,
+      detail: suggestion,
       queueState: "Unknown",
       runState: "Error",
       progress: 100
     });
 
-    renderFailure({
-      message: "Status polling failed.",
-      reason: err.message,
-      suggestion: "Try again. If this keeps happening, the backend route or response shape may need to be checked.",
-      show_hire_cta: false
+    renderFailureFromPayload({
+      message,
+      reason,
+      suggestion,
+      help
     });
 
     setSubmitState(false);
@@ -507,7 +569,7 @@ async function pollJobStatus(jobId) {
 }
 
 /* -----------------------------
-   Submit Job
+   Submit job
 ----------------------------- */
 
 form.addEventListener("submit", async (event) => {
@@ -532,11 +594,10 @@ form.addEventListener("submit", async (event) => {
       progress: 100
     });
 
-    renderFailure({
+    renderFailureFromPayload({
       message: "Missing target URL.",
-      reason: "The form was submitted without a URL.",
-      suggestion: "Enter a valid public URL and try again.",
-      show_hire_cta: false
+      reason: "invalid_target",
+      suggestion: "Enter a valid public URL and try again."
     });
 
     return;
@@ -552,11 +613,10 @@ form.addEventListener("submit", async (event) => {
       progress: 100
     });
 
-    renderFailure({
+    renderFailureFromPayload({
       message: "Missing preset.",
-      reason: "The form was submitted without a selected preset.",
-      suggestion: "Choose the preset that best matches the target site and try again.",
-      show_hire_cta: false
+      reason: "unsupported_config",
+      suggestion: "Choose the preset that best matches the target site and try again."
     });
 
     return;
@@ -571,7 +631,7 @@ form.addEventListener("submit", async (event) => {
       detail: "The request is being sent to the backend.",
       queueState: "Submitting",
       runState: "Submitting",
-      progress: 22
+      progress: 15
     });
 
     const payload = {
@@ -579,7 +639,7 @@ form.addEventListener("submit", async (event) => {
       preset: preset
     };
 
-    const response = await fetch(`${API_BASE_URL}/scraper/jobs`, {
+    const response = await fetch(`${API_BASE_URL}/api/jobs`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -587,74 +647,75 @@ form.addEventListener("submit", async (event) => {
       body: JSON.stringify(payload)
     });
 
-    if (!response.ok) {
-      let message = `Request failed (${response.status})`;
-      let reason = "The backend rejected the job submission.";
-      let suggestion = "Review the URL and preset, then try again.";
-
-      try {
-        const error = await response.json();
-        if (error.detail) message = error.detail;
-        if (error.reason) reason = error.reason;
-        if (error.suggestion) suggestion = error.suggestion;
-      } catch (_) {}
-
-      throw new Error(JSON.stringify({ message, reason, suggestion }));
-    }
-
     const data = await response.json();
 
-    const jobId = data.job_id || data.id;
+    if (!response.ok) {
+      const errorPayload = extractErrorPayload(data);
+
+      throw new Error(
+        JSON.stringify({
+          message: errorPayload.message || `Request failed (${response.status})`,
+          reason: errorPayload.reason || "request_failed",
+          suggestion: errorPayload.suggestion || "Review the URL and preset, then try again.",
+          help: errorPayload.help || null
+        })
+      );
+    }
+
+    const jobId = data.job_id;
 
     if (!jobId) {
-      throw new Error(JSON.stringify({
-        message: "The backend accepted the request but did not return a job ID.",
-        reason: "Missing job identifier in the response.",
-        suggestion: "Check the submit endpoint response shape."
-      }));
+      throw new Error(
+        JSON.stringify({
+          message: "The backend accepted the request but did not return a job ID.",
+          reason: "missing_job_id",
+          suggestion: "Check the submit endpoint response shape."
+        })
+      );
     }
 
     activeJobId = jobId;
     pollAttempts = 0;
-
     jobIdEl.textContent = jobId;
 
     setStatusState("queued", {
       badge: "Queued",
-      message: data.message || "Scrape job submitted successfully.",
-      detail: data.detail || "The job is now waiting to run.",
-      queueState: data.queue_state || "Queued",
-      runState: data.status || "Queued",
-      progress: 30
+      message: "Scrape job submitted successfully.",
+      detail: "The job is now waiting to run.",
+      queueState: "Queued",
+      runState: statusFromResponse(data) || "queued",
+      progress: getProgressPercentFromJob(data)
     });
 
     pollTimer = setTimeout(() => pollJobStatus(jobId), POLL_INTERVAL_MS);
   } catch (err) {
     let message = "Could not submit scrape job.";
-    let reason = err.message;
+    let reason = "request_failed";
     let suggestion = "Try again after checking the form values.";
+    let help = null;
 
     try {
       const parsed = JSON.parse(err.message);
       message = parsed.message || message;
       reason = parsed.reason || reason;
       suggestion = parsed.suggestion || suggestion;
+      help = parsed.help || null;
     } catch (_) {}
 
     setStatusState("failed", {
       badge: "Error",
       message: message,
-      detail: reason,
+      detail: suggestion,
       queueState: "Not queued",
       runState: "Submission Failed",
       progress: 100
     });
 
-    renderFailure({
+    renderFailureFromPayload({
       message,
       reason,
       suggestion,
-      show_hire_cta: false
+      help
     });
 
     setSubmitState(false);
@@ -675,4 +736,5 @@ presetSelect.addEventListener("change", () => {
 ----------------------------- */
 
 resetUiForNewJob();
-loadStats();
+initializePlaceholderCounters();
+loadPresets();
