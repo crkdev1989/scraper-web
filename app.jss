@@ -41,10 +41,6 @@ let activeJobId = null;
 let pollTimer = null;
 let pollAttempts = 0;
 
-/* -----------------------------
-   Helpers
------------------------------ */
-
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -200,9 +196,11 @@ function extractErrorPayload(errorData) {
     if (typeof errorData.detail === "object" && errorData.detail !== null) {
       return errorData.detail;
     }
+
     return {
-      message: String(errorData.detail),
+      status: "failed",
       reason: "request_failed",
+      message: String(errorData.detail),
       suggestion: "Please try again."
     };
   }
@@ -212,8 +210,9 @@ function extractErrorPayload(errorData) {
   }
 
   return {
-    message: "Request failed.",
+    status: "failed",
     reason: "request_failed",
+    message: "Request failed.",
     suggestion: "Please try again."
   };
 }
@@ -222,12 +221,8 @@ function shouldShowAdvancedCta(payload) {
   return Boolean(payload && payload.help);
 }
 
-function statusFromResponse(data) {
-  return String(data?.status || "unknown").toLowerCase();
-}
-
 function getProgressPercentFromJob(data) {
-  const status = statusFromResponse(data);
+  const status = String(data?.status || "").toLowerCase();
 
   if (status === "queued") {
     return 20;
@@ -244,7 +239,7 @@ function getProgressPercentFromJob(data) {
     }
 
     const pageSignal = Math.min(pagesScanned * 5, 30);
-    const recordSignal = Math.min(recordsExtracted > 0 ? 20 : 0, 20);
+    const recordSignal = recordsExtracted > 0 ? 20 : 0;
     const paginationSignal = Math.min(paginationPages * 4, 15);
 
     return Math.min(85, 35 + pageSignal + recordSignal + paginationSignal);
@@ -256,10 +251,6 @@ function getProgressPercentFromJob(data) {
 
   return 18;
 }
-
-/* -----------------------------
-   Presets / limits
------------------------------ */
 
 async function loadPresets() {
   try {
@@ -297,15 +288,24 @@ async function loadPresets() {
   }
 }
 
-function initializePlaceholderCounters() {
-  jobsRunEl.textContent = "0";
-  recordsExtractedEl.textContent = "0";
-  completedScrapesEl.textContent = "0";
-}
+async function loadStats() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/stats`);
+    const data = await response.json();
 
-/* -----------------------------
-   Rendering
------------------------------ */
+    if (!response.ok) {
+      throw new Error("Failed to load stats.");
+    }
+
+    jobsRunEl.textContent = formatNumber(data.jobs_run);
+    recordsExtractedEl.textContent = formatNumber(data.records_extracted);
+    completedScrapesEl.textContent = formatNumber(data.completed_scrapes);
+  } catch (err) {
+    jobsRunEl.textContent = "0";
+    recordsExtractedEl.textContent = "0";
+    completedScrapesEl.textContent = "0";
+  }
+}
 
 function renderCompletedResults(data) {
   const recordCount = data.records_extracted ?? 0;
@@ -329,28 +329,30 @@ function renderCompletedResults(data) {
   `;
 
   const files = data.files || {};
+  const jobId = data.job_id || activeJobId;
 
   enableDownloadLink(
     downloadResultsCsvEl,
-    files["results.csv"]?.available ? getDownloadUrl(data.job_id || activeJobId, "results.csv") : null
+    files["results.csv"]?.available ? getDownloadUrl(jobId, "results.csv") : null
   );
 
   enableDownloadLink(
     downloadResultsJsonEl,
-    files["results.json"]?.available ? getDownloadUrl(data.job_id || activeJobId, "results.json") : null
+    files["results.json"]?.available ? getDownloadUrl(jobId, "results.json") : null
   );
 
   enableDownloadLink(
     downloadSummaryTxtEl,
-    files["summary.txt"]?.available ? getDownloadUrl(data.job_id || activeJobId, "summary.txt") : null
+    files["summary.txt"]?.available ? getDownloadUrl(jobId, "summary.txt") : null
   );
 
   enableDownloadLink(
     downloadRunReportEl,
-    files["run_report.json"]?.available ? getDownloadUrl(data.job_id || activeJobId, "run_report.json") : null
+    files["run_report.json"]?.available ? getDownloadUrl(jobId, "run_report.json") : null
   );
 
   showEl(resultsPanelEl);
+  hideEl(failurePanelEl);
 }
 
 function renderFailureFromPayload(failure) {
@@ -371,6 +373,7 @@ function renderFailureFromPayload(failure) {
   failureSuggestionEl.textContent = suggestion;
 
   showEl(failurePanelEl);
+  hideEl(resultsPanelEl);
 
   if (shouldShowAdvancedCta(failure)) {
     showEl(advancedCtaPanelEl);
@@ -378,10 +381,6 @@ function renderFailureFromPayload(failure) {
     hideEl(advancedCtaPanelEl);
   }
 }
-
-/* -----------------------------
-   Polling
------------------------------ */
 
 async function pollJobStatus(jobId) {
   clearPolling();
@@ -429,7 +428,7 @@ async function pollJobStatus(jobId) {
       );
     }
 
-    const status = statusFromResponse(data);
+    const status = String(data.status || "").toLowerCase();
     const progressPercent = getProgressPercentFromJob(data);
 
     activeJobId = data.job_id || jobId;
@@ -499,6 +498,7 @@ async function pollJobStatus(jobId) {
 
       renderCompletedResults(data);
       setSubmitState(false);
+      loadStats();
       return;
     }
 
@@ -520,6 +520,7 @@ async function pollJobStatus(jobId) {
 
       renderFailureFromPayload(failure);
       setSubmitState(false);
+      loadStats();
       return;
     }
 
@@ -567,10 +568,6 @@ async function pollJobStatus(jobId) {
     setSubmitState(false);
   }
 }
-
-/* -----------------------------
-   Submit job
------------------------------ */
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -683,7 +680,7 @@ form.addEventListener("submit", async (event) => {
       message: "Scrape job submitted successfully.",
       detail: "The job is now waiting to run.",
       queueState: "Queued",
-      runState: statusFromResponse(data) || "queued",
+      runState: String(data.status || "queued"),
       progress: getProgressPercentFromJob(data)
     });
 
@@ -722,19 +719,11 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
-/* -----------------------------
-   Preset label sync
------------------------------ */
-
 presetSelect.addEventListener("change", () => {
   selectedPresetLabelEl.textContent =
     presetSelect.options[presetSelect.selectedIndex]?.text || "None selected";
 });
 
-/* -----------------------------
-   Init
------------------------------ */
-
 resetUiForNewJob();
-initializePlaceholderCounters();
 loadPresets();
+loadStats();
